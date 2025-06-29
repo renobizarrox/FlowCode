@@ -1,138 +1,158 @@
 <template>
   <div class="blueprint-editor">
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <button class="toolbar-btn" @click="clearCanvas">
-        <v-icon size="16">mdi-delete</v-icon>
-        Clear
-      </button>
-      <button class="toolbar-btn" @click="saveBlueprint" title="Export blueprint as JSON file">
-        <v-icon size="16">mdi-download</v-icon>
-        Export
-      </button>
-      <button class="toolbar-btn" @click="loadBlueprint" title="Import blueprint from JSON file">
-        <v-icon size="16">mdi-upload</v-icon>
-        Import
-      </button>
-      <div class="toolbar-status" :title="`Last auto-save: ${lastSaved?.toLocaleString() || 'Never'}`">
-        <v-icon size="14" color="success">mdi-cloud-check</v-icon>
-        {{ lastSavedText }}
-      </div>
-    </div>
+    <div class="editor-layout">
+      <!-- Blueprint Canvas Side -->
+      <div class="blueprint-side" :style="{ width: showCodeEditor ? '60%' : '100%' }">
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <button class="toolbar-btn" @click="clearCanvas">
+            <v-icon size="16">mdi-delete</v-icon>
+            Clear
+          </button>
+          <button class="toolbar-btn" @click="saveBlueprint" title="Export blueprint as JSON file">
+            <v-icon size="16">mdi-download</v-icon>
+            Export
+          </button>
+          <button class="toolbar-btn" @click="loadBlueprint" title="Import blueprint from JSON file">
+            <v-icon size="16">mdi-upload</v-icon>
+            Import
+          </button>
+          <button class="toolbar-btn" @click="toggleCodeEditor" :class="{ active: showCodeEditor }">
+            <v-icon size="16">mdi-code-braces</v-icon>
+            {{ showCodeEditor ? 'Hide Code' : 'Show Code' }}
+          </button>
+          <div class="toolbar-status" :title="`Last auto-save: ${lastSaved?.toLocaleString() || 'Never'}`">
+            <v-icon size="14" color="success">mdi-cloud-check</v-icon>
+            {{ lastSavedText }}
+          </div>
+        </div>
 
-    <!-- Node Palette -->
-    <NodePalette @node-drop="addNode" />
+        <!-- Node Palette -->
+        <NodePalette @node-drop="addNode" />
 
-    <!-- Context Menu -->
-    <ContextMenu
-      :visible="contextMenu.visible"
-      :position="contextMenu.position"
-      :connection-id="contextMenu.connectionId"
-      @delete-connection="deleteConnection"
-      @highlight-connection="highlightConnection"
-      @show-connection-info="showConnectionInfo"
-      @close="closeContextMenu"
-    />
-
-    <!-- Canvas -->
-    <div 
-      ref="canvas"
-      class="blueprint-canvas"
-      @mousedown="onCanvasMouseDown"
-      @mousemove="onCanvasMouseMove"
-      @mouseup="onCanvasMouseUp"
-      @drop="onCanvasDrop"
-      @dragover.prevent
-    >
-      <!-- Connection SVG -->
-      <svg class="connection-svg">
-        <!-- Define gradients for flow animation -->
-        <defs>
-          <linearGradient
-            v-for="connection in connections"
-            :id="`flow-gradient-${connection.id}`"
-            :key="`gradient-${connection.id}`"
-            x1="0%"
-            y1="0%"
-            x2="100%"
-            y2="0%"
-          >
-            <stop offset="0%" :stop-color="getConnectionColor(connection.type)" stop-opacity="0">
-              <animate
-                attributeName="offset"
-                values="-0.2;1"
-                :dur="getFlowSpeed(connection.type)"
-                repeatCount="indefinite"
-              />
-            </stop>
-            <stop offset="10%" :stop-color="getConnectionColor(connection.type)" stop-opacity="1">
-              <animate
-                attributeName="offset"
-                values="-0.1;1.1"
-                :dur="getFlowSpeed(connection.type)"
-                repeatCount="indefinite"
-              />
-            </stop>
-            <stop offset="20%" :stop-color="getConnectionColor(connection.type)" stop-opacity="0">
-              <animate
-                attributeName="offset"
-                values="0;1.2"
-                :dur="getFlowSpeed(connection.type)"
-                repeatCount="indefinite"
-              />
-            </stop>
-          </linearGradient>
-        </defs>
-        
-        <!-- Connection paths -->
-        <g v-for="connection in connections" :key="connection.id">
-          <!-- Base connection line -->
-          <path
-            :data-connection-id="connection.id"
-            :d="connection.path"
-            :class="['connection-path', connection.type]"
-            @contextmenu.prevent="onConnectionRightClick($event, connection.id)"
-            @click="onConnectionClick(connection.id)"
-          />
-          <!-- Flow animation overlay -->
-          <path
-            :d="connection.path"
-            :class="['connection-flow', connection.type]"
-            :stroke="`url(#flow-gradient-${connection.id})`"
-            stroke-width="2"
-            fill="none"
-            pointer-events="none"
-          />
-        </g>
-        
-        <!-- Temporary connection while dragging -->
-        <path
-          v-if="isDraggingConnection && dragConnectionPath"
-          :d="dragConnectionPath"
-          class="connection-path temp"
+        <!-- Context Menu -->
+        <ContextMenu
+          :visible="contextMenu.visible"
+          :position="contextMenu.position"
+          :connection-id="contextMenu.connectionId"
+          @delete-connection="deleteConnection"
+          @highlight-connection="highlightConnection"
+          @show-connection-info="showConnectionInfo"
+          @close="closeContextMenu"
         />
-      </svg>
 
-      <!-- Nodes -->
-      <BlueprintNode
-        v-for="node in nodes"
-        :key="node.id"
-        :node="node"
-        :selected="selectedNodes.includes(node.id)"
-        @select="selectNode"
-        @delete="deleteNode"
-        @pin-drag-start="onPinDragStart"
-        @pin-drag-end="onPinDragEnd"
-        @update:position="updateNodePosition"
-        @drag-start="onNodeDragStart"
-        @drag-end="onNodeDragEnd"
-      />
+        <!-- Canvas -->
+        <div 
+          ref="canvas"
+          class="blueprint-canvas"
+          @mousedown="onCanvasMouseDown"
+          @mousemove="onCanvasMouseMove"
+          @mouseup="onCanvasMouseUp"
+          @drop="onCanvasDrop"
+          @dragover.prevent
+        >
+          <!-- Connection SVG -->
+          <svg class="connection-svg">
+            <!-- Define gradients for flow animation -->
+            <defs>
+              <linearGradient
+                v-for="connection in connections"
+                :id="`flow-gradient-${connection.id}`"
+                :key="`gradient-${connection.id}`"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
+                <stop offset="0%" :stop-color="getConnectionColor(connection.type)" stop-opacity="0">
+                  <animate
+                    attributeName="offset"
+                    values="-0.2;1"
+                    :dur="getFlowSpeed(connection.type)"
+                    repeatCount="indefinite"
+                  />
+                </stop>
+                <stop offset="10%" :stop-color="getConnectionColor(connection.type)" stop-opacity="1">
+                  <animate
+                    attributeName="offset"
+                    values="-0.1;1.1"
+                    :dur="getFlowSpeed(connection.type)"
+                    repeatCount="indefinite"
+                  />
+                </stop>
+                <stop offset="20%" :stop-color="getConnectionColor(connection.type)" stop-opacity="0">
+                  <animate
+                    attributeName="offset"
+                    values="0;1.2"
+                    :dur="getFlowSpeed(connection.type)"
+                    repeatCount="indefinite"
+                  />
+                </stop>
+              </linearGradient>
+            </defs>
+            
+            <!-- Connection paths -->
+            <g v-for="connection in connections" :key="connection.id">
+              <!-- Base connection line -->
+              <path
+                :data-connection-id="connection.id"
+                :d="connection.path"
+                :class="['connection-path', connection.type]"
+                @contextmenu.prevent="onConnectionRightClick($event, connection.id)"
+                @click="onConnectionClick(connection.id)"
+              />
+              <!-- Flow animation overlay -->
+              <path
+                :d="connection.path"
+                :class="['connection-flow', connection.type]"
+                :stroke="`url(#flow-gradient-${connection.id})`"
+                stroke-width="2"
+                fill="none"
+                pointer-events="none"
+              />
+            </g>
+            
+            <!-- Temporary connection while dragging -->
+            <path
+              v-if="isDraggingConnection && dragConnectionPath"
+              :d="dragConnectionPath"
+              class="connection-path temp"
+            />
+          </svg>
+
+          <!-- Nodes -->
+          <BlueprintNode
+            v-for="node in nodes"
+            :key="node.id"
+            :node="node"
+            :selected="selectedNodes.includes(node.id)"
+            @select="selectNode"
+            @delete="deleteNode"
+            @pin-drag-start="onPinDragStart"
+            @pin-drag-end="onPinDragEnd"
+            @update:position="updateNodePosition"
+            @drag-start="onNodeDragStart"
+            @drag-end="onNodeDragEnd"
+          />
+        </div>
+      </div>
+
+      <!-- Code Editor Side -->
+      <div v-if="showCodeEditor" class="code-editor-side">
+        <CodeEditor
+          :nodes="nodes"
+          :connections="connections"
+          @update:code="onCodeUpdate"
+          @parse-code="onParseCode"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
+import CodeEditor from './CodeEditor.vue'
 
 interface Pin {
   id: string
@@ -185,6 +205,9 @@ const contextMenu = ref({
 // Node dragging state
 const draggingNodes = ref<Set<string>>(new Set())
 let connectionUpdateInterval: number | null = null
+
+// Code editor state
+const showCodeEditor = ref(false)
 
 // Auto-save key for localStorage
 const STORAGE_KEY = 'blueprint-editor-state'
@@ -900,6 +923,32 @@ const getConnectionColor = (type: string) => {
 const getFlowSpeed = (type: string) => {
   if (type === 'exec') return '1s' // Faster for execution flow
   return '2s' // Slower for data connections
+}
+
+// Toggle code editor visibility
+const toggleCodeEditor = () => {
+  showCodeEditor.value = !showCodeEditor.value
+}
+
+// Handle code updates from the editor
+const onCodeUpdate = (code: string) => {
+  // This could be used to sync changes back to the blueprint
+  console.log('Code updated:', code)
+}
+
+// Parse code and update blueprint
+const onParseCode = (parsedData: { nodes: any[], connections: any[] }) => {
+  // Replace current blueprint with parsed nodes and connections
+  nodes.value = parsedData.nodes
+  connections.value = parsedData.connections
+  
+  // Update connections after adding nodes
+  nextTick(() => {
+    updateConnections()
+    autoSave()
+  })
+  
+  console.log('Blueprint updated from code:', parsedData)
 }
 
 onMounted(() => {

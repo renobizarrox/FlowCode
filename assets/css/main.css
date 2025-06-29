@@ -1,5 +1,10 @@
 /* Blueprint Editor - Unreal Engine 5 Inspired Styles */
 
+/* Ensure Vuetify icons display properly */
+.v-icon {
+  font-family: 'Material Design Icons' !important;
+}
+
 :root {
   /* UE5 Blueprint Colors */
   --bg-primary: #1a1a1a;
@@ -45,6 +50,25 @@ body {
   width: 100vw;
   height: 100vh;
   background: var(--bg-primary);
+  position: relative;
+}
+
+.editor-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.blueprint-side {
+  position: relative;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.code-editor-side {
+  width: 40%;
+  height: 100%;
   position: relative;
 }
 
@@ -210,6 +234,11 @@ body {
 }
 
 .toolbar-btn:hover {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+.toolbar-btn.active {
   background: var(--accent-blue);
   border-color: var(--accent-blue);
 }
